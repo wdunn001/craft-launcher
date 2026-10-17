@@ -1,7 +1,7 @@
 //! Modal dialogs: release notes, uninstall confirmation, settings.
 
 use crate::i18n::fmt;
-use artcraft_launcher_core::protocol::Command;
+use artcraft_launcher_core::protocol::{Command, SuiteAccount};
 use artcraft_launcher_core::{Os, PackageKind};
 use egui::{RichText, vec2};
 
@@ -12,7 +12,7 @@ use crate::widgets::{self, Cell, Kind};
 
 impl LauncherUi {
     pub(crate) fn dialogs(&mut self, ctx: &egui::Context, host: &mut dyn Host) {
-        let Some(dialog) = self.dialog.clone() else {
+        let Some(mut dialog) = self.dialog.clone() else {
             self.alert_popup(ctx);
             return;
         };
@@ -22,14 +22,18 @@ impl LauncherUi {
         let modal = egui::Modal::new(egui::Id::new("dialog").with(dialog.key()))
             .frame(egui::Frame::new().fill(t.bg).stroke(egui::Stroke::new(1.0, t.line_strong)).shadow(theme::shadow(&t)).inner_margin(24));
         let mut close = false;
-        let response = match &dialog {
+        let response = match &mut dialog {
             Dialog::Notes(id) => modal.show(ctx, |ui| close = self.notes_dialog(ui, id)),
             Dialog::ConfirmUninstall(id) => modal.show(ctx, |ui| close = self.uninstall_dialog(ui, id)),
+            Dialog::Install { app, folder } => modal.show(ctx, |ui| close = self.install_dialog(ui, app, folder, host)),
+            Dialog::Replace { app, path } => modal.show(ctx, |ui| close = self.replace_dialog(ui, app, path)),
             Dialog::Settings => modal.show(ctx, |ui| close = self.settings_dialog(ui, host)),
             Dialog::LauncherUpdate(r) => modal.show(ctx, |ui| close = self.launcher_update_dialog(ui, r)),
         };
         if close || response.should_close() {
             self.dialog = None;
+        } else {
+            self.dialog = Some(dialog);
         }
     }
 
@@ -128,7 +132,10 @@ impl LauncherUi {
                         close = true;
                     }
                 } else {
-                    let url = self.platform.and_then(|p| crate::views::launcher_download(r, p)).unwrap_or_else(|| r.html_url.clone());
+                    let url = self
+                        .platform
+                        .and_then(|p| crate::views::launcher_download(r, p, crate::settings::is_flatpak_sandbox()))
+                        .unwrap_or_else(|| r.html_url.clone());
                     if widgets::button(ui, tl!("Download"), Kind::Primary, 0.0).clicked() {
                         ui.ctx().open_url(egui::OpenUrl::new_tab(url));
                         close = true;
@@ -177,6 +184,80 @@ impl LauncherUi {
         close
     }
 
+    fn replace_dialog(&mut self, ui: &mut egui::Ui, id: &str, path: &str) -> bool {
+        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        let t = Tokens::get(ui.ctx());
+        ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
+        Self::title(ui, crate::icons::app(id), tl!("Replace what's there?"), "");
+        ui.label(
+            RichText::new(fmt(tl!("{path} already exists. Installing {name} will overwrite it."), &[("path", path), ("name", app.name)]))
+                .color(t.muted),
+        );
+        ui.add_space(20.0);
+        let mut close = false;
+        ui.horizontal(|ui| {
+            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                if widgets::button(ui, tl!("Replace"), Kind::Danger, 110.0).clicked() {
+                    self.send(Command::Replace { app: id.to_string() });
+                    close = true;
+                }
+                if widgets::button(ui, tl!("Cancel"), Kind::Secondary, 90.0).clicked() {
+                    close = true;
+                }
+            });
+        });
+        close
+    }
+
+    fn install_dialog(&mut self, ui: &mut egui::Ui, id: &str, folder: &mut String, host: &mut dyn Host) -> bool {
+        let Some(app) = self.entry(id).map(|e| e.app) else { return true };
+        ui.set_width(440.0f32.min(ui.ctx().content_rect().width() - 80.0));
+        Self::title(ui, None, app.name, tl!("Install folder"));
+        let default = self.settings.install_locations.root.as_deref().unwrap_or(tl!("System default"));
+        Self::folder_field(ui, folder, Some(default), host);
+        if self.platform.is_some_and(|p| p.os == Os::Linux) {
+            ui.label(tl!("Custom folders use AppImage on Linux."));
+        }
+        ui.add_space(14.0);
+        let mut close = false;
+        ui.horizontal(|ui| {
+            if widgets::button(ui, tl!("Install"), Kind::Primary, 100.0).clicked() {
+                if folder.is_empty() {
+                    self.settings.install_locations.per_app.remove(id);
+                } else {
+                    self.settings.install_locations.per_app.insert(id.to_string(), folder.clone());
+                }
+                self.configure();
+                self.send(Command::Install { app: id.to_string() });
+                close = true;
+            }
+            close |= widgets::button(ui, tl!("Cancel"), Kind::Secondary, 90.0).clicked();
+        });
+        close
+    }
+
+    fn folder_field(ui: &mut egui::Ui, folder: &mut String, default: Option<&str>, host: &mut dyn Host) {
+        let label = ui.label(tl!("Install folder"));
+        ui.add(
+            egui::TextEdit::singleline(folder)
+                .id_salt("install_folder")
+                .hint_text(default.unwrap_or(tl!("System default")))
+                .desired_width(f32::INFINITY),
+        )
+        .labelled_by(label.id);
+        ui.label(tl!("Apps are placed inside this folder."));
+        ui.horizontal(|ui| {
+            if widgets::button(ui, tl!("Browse…"), Kind::Secondary, 100.0).clicked()
+                && let Some(selected) = host.pick_folder(if folder.is_empty() { default } else { Some(folder.as_str()) })
+            {
+                *folder = selected;
+            }
+            if widgets::button(ui, tl!("Use default"), Kind::Secondary, 120.0).clicked() {
+                folder.clear();
+            }
+        });
+    }
+
     fn settings_dialog(&mut self, ui: &mut egui::Ui, host: &mut dyn Host) -> bool {
         // Leave room for the frame (48 px) and a 16 px gutter on each side.
         let viewport = ui.ctx().content_rect();
@@ -218,6 +299,90 @@ impl LauncherUi {
             });
         }
         close
+    }
+
+    /// The suite's shared sign-in.
+    ///
+    /// The launcher is where somebody signs in once for the whole Craft App Suite. The account
+    /// goes in one suite-level folder and the token goes in the operating system's keychain. Every
+    /// Craft App then finds the same session. One sign-out ends it everywhere.
+    ///
+    /// Optional. It stays silent until somebody names a deployment. With the address empty the
+    /// launcher offers nothing further here and makes no request about an account.
+    fn account_settings(&mut self, ui: &mut egui::Ui) {
+        let t = Tokens::get(ui.ctx());
+        ui.add_space(14.0);
+        widgets::hud(ui, tl!("Account"), t.faint);
+        ui.add_space(6.0);
+        ui.label(RichText::new(tl!("Sign in here once. Every Craft app then uses it.")).size(12.0).color(t.muted));
+        ui.add_space(6.0);
+
+        let mut address = self.account_edit.clone().unwrap_or_else(|| self.settings.account_service.clone());
+        ui.label(tl!("CollabCraft address"));
+        let field = egui::TextEdit::singleline(&mut address).hint_text("https://craft.example.com").desired_width(f32::INFINITY);
+        let typing = ui.add(field);
+        if typing.changed() {
+            self.account_edit = Some(address);
+        }
+        // Committed when the field is done with, never per keystroke. Each commit asks the backend
+        // about an account. A half-typed URL is no account.
+        if typing.lost_focus() {
+            self.commit_account_address();
+        }
+
+        let sign_in = |ui: &mut egui::Ui| widgets::button(ui, tl!("Sign in"), Kind::Primary, 0.0).clicked();
+        match self.account.clone() {
+            // Unconfigured has nothing to sign in to. Failed never reaches here: the event handler
+            // reports it and asks the backend again.
+            SuiteAccount::Unconfigured | SuiteAccount::Failed(_) => {}
+            SuiteAccount::SignedOut => {
+                ui.add_space(8.0);
+                if sign_in(ui) {
+                    self.send(Command::AccountSignIn);
+                }
+            }
+            SuiteAccount::Waiting { .. } => {
+                ui.add_space(8.0);
+                ui.label(RichText::new(tl!("Your browser is open. Finish signing in there.")).color(t.warn));
+            }
+            SuiteAccount::Unreadable { display, why } => {
+                ui.add_space(8.0);
+                ui.label(RichText::new(display.as_str()).family(theme::medium()).color(t.ink_strong));
+                ui.label(RichText::new(tl!("The shared sign-in couldn't be read.")).size(12.0).color(t.warn));
+                ui.label(RichText::new(why.as_str()).size(12.0).color(t.muted));
+                ui.add_space(6.0);
+                if sign_in(ui) {
+                    self.send(Command::AccountSignIn);
+                }
+            }
+            SuiteAccount::SignedIn(who) => {
+                ui.add_space(8.0);
+                ui.label(RichText::new(who.display.as_str()).family(theme::medium()).color(t.ink_strong));
+                if let Some(email) = &who.email {
+                    ui.label(RichText::new(email.as_str()).size(12.0).color(t.muted));
+                }
+                ui.label(RichText::new(who.service.as_str()).size(12.0).color(t.faint));
+                // Said here. The alternative is discovering it at the moment of saving.
+                if let Some(linked) = who.linked {
+                    let (text, color) = if linked { (tl!("Storage connected"), t.good) } else { (tl!("No storage connected"), t.warn) };
+                    ui.label(RichText::new(text).size(12.0).color(color));
+                }
+                ui.add_space(6.0);
+                // Chat with nothing open: the provider's lobby URL from /me. Absent where the
+                // deployment has no conversation app, so we draw no button rather than a dead one.
+                if let Some(conv) = &who.conversation {
+                    let label = crate::i18n::fmt(&tl!("Open {name}"), &[("name", conv.name.as_str())]);
+                    if widgets::button(ui, &label, Kind::Secondary, 0.0).clicked() {
+                        ui.ctx().open_url(egui::OpenUrl::new_tab(conv.url.clone()));
+                    }
+                    ui.add_space(4.0);
+                }
+                if widgets::button(ui, tl!("Sign out"), Kind::Secondary, 0.0).clicked() {
+                    self.send(Command::AccountSignOut);
+                }
+                ui.label(RichText::new(tl!("Signing out ends the session for every Craft app.")).size(12.0).color(t.muted));
+            }
+        }
     }
 
     fn settings_contents(&mut self, ui: &mut egui::Ui, host: &mut dyn Host) {
@@ -282,6 +447,42 @@ impl LauncherUi {
         ui.checkbox(&mut self.settings.notify, tl!("Notify me when an installed app has an update"));
         ui.checkbox(&mut self.settings.prereleases, tl!("Include pre-releases (betas and release candidates)"));
 
+        if self.caps.manage_apps {
+            section(ui, tl!("Default install folder"));
+            if self.custom_install_folders() {
+                let mut folder = self.settings.install_locations.root.clone().unwrap_or_default();
+                Self::folder_field(ui, &mut folder, None, host);
+                self.settings.install_locations.root = (!folder.is_empty()).then_some(folder);
+                ui.label(RichText::new(tl!("New installs use this folder. Updates stay in their current location.")).size(12.0).color(t.muted));
+                if self.platform.is_some_and(|p| p.os == Os::Linux) {
+                    ui.label(RichText::new(tl!("Custom folders use AppImage on Linux.")).size(12.0).color(t.muted));
+                }
+            } else {
+                ui.label(tl!("The system manages install locations here."));
+            }
+        }
+
+        if self.caps.manage_apps && self.platform.is_some_and(|p| p.os == Os::Windows) {
+            section(ui, tl!("Installing on Windows"));
+            let mut choice = self
+                .settings
+                .preferred_kinds
+                .first()
+                .copied()
+                .filter(|kind| matches!(kind, PackageKind::Msi | PackageKind::PortableZip))
+                .or(Some(PackageKind::Msi));
+            row(ui, tl!("Install new apps as"), 210.0, &mut |ui| {
+                let label = choice.map_or_else(|| crate::i18n::t(PackageKind::Msi.label()), |kind| crate::i18n::t(kind.label()));
+                egui::ComboBox::from_id_salt("windows-kind").selected_text(label).width(210.0).show_ui(ui, |ui| {
+                    for kind in [PackageKind::Msi, PackageKind::PortableZip] {
+                        ui.selectable_value(&mut choice, Some(kind), crate::i18n::t(kind.label()));
+                    }
+                });
+            });
+            self.settings.preferred_kinds = choice.into_iter().collect();
+            ui.label(RichText::new(tl!("Updates always use the format an app was installed with.")).size(12.0).color(t.muted));
+        }
+
         if self.caps.manage_apps && self.platform.is_some_and(|p| p.os == Os::Linux) {
             section(ui, tl!("Installing on Linux"));
             let is_flatpak = crate::settings::is_flatpak_sandbox();
@@ -334,6 +535,10 @@ impl LauncherUi {
                 let ctx = ui.ctx().clone();
                 self.toast(&ctx, fmt(tl!("Couldn't change the login item: {e}"), &[("e", &e)]), true);
             }
+        }
+
+        if self.caps.manage_apps {
+            self.account_settings(ui);
         }
 
         section(ui, tl!("Community"));

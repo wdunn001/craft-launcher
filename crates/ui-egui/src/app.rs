@@ -3,7 +3,7 @@
 use std::time::Duration;
 
 use artcraft_launcher_core::protocol::{
-    Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, PAUSED, Source,
+    Backend, BackendOptions, CANCELLED, Capabilities, Command, Event, INSTALL_CANCELLED, JobPhase, LatestRelease, PAUSED, Source, SuiteAccount,
 };
 use artcraft_launcher_core::release::Release;
 use artcraft_launcher_core::status::AppStatus;
@@ -58,6 +58,9 @@ pub trait Host {
     fn reduce_motion(&self) -> bool {
         false
     }
+    fn pick_folder(&mut self, _initial: Option<&str>) -> Option<String> {
+        None
+    }
     /// Quit the launcher for real (not just hide to the tray).
     fn quit(&mut self) {}
 }
@@ -72,6 +75,8 @@ pub(crate) struct Toast {
 pub(crate) enum Dialog {
     Notes(String),
     ConfirmUninstall(String),
+    Install { app: String, folder: String },
+    Replace { app: String, path: String },
     Settings,
     LauncherUpdate(artcraft_launcher_core::Release),
 }
@@ -83,6 +88,8 @@ impl Dialog {
         match self {
             Dialog::Notes(id) => ("notes", id),
             Dialog::ConfirmUninstall(id) => ("uninstall", id),
+            Dialog::Install { app, .. } => ("install", app),
+            Dialog::Replace { app, .. } => ("replace", app),
             Dialog::Settings => ("settings", ""),
             Dialog::LauncherUpdate(r) => ("launcher-update", &r.tag),
         }
@@ -142,6 +149,18 @@ pub struct LauncherUi {
     /// Versions of apps or the launcher already queued for auto-update during this session,
     /// preventing repeated install loops if an update fails or is in progress.
     pub(crate) auto_update_attempted: std::collections::BTreeSet<(String, String)>,
+    /// The suite's shared sign-in. `Unconfigured` until a backend says otherwise. That is where the
+    /// web build stays.
+    pub(crate) account: SuiteAccount,
+    /// The sign-in page already opened in a browser. Coming back to the window then does not open
+    /// a second tab.
+    opened_verify_url: Option<String>,
+    /// What is being typed into the deployment address, before it is committed.
+    ///
+    /// Held here because committing on every keystroke would ask the backend about an account at
+    /// every half-finished URL, one network request per character. It is committed when the field
+    /// loses focus and when the Settings dialog closes.
+    pub(crate) account_edit: Option<String>,
 }
 
 /// The language to draw in: the preference, or English where it needs a CJK font the system
@@ -199,6 +218,9 @@ impl LauncherUi {
             last_detect: 0,
             was_focused: true,
             auto_update_attempted: std::collections::BTreeSet::new(),
+            account: SuiteAccount::Unconfigured,
+            opened_verify_url: None,
+            account_edit: None,
         }
     }
 
@@ -247,6 +269,16 @@ impl LauncherUi {
         self.backend.send(command);
     }
 
+    /// Takes whatever was typed into the deployment address as the setting.
+    pub(crate) fn commit_account_address(&mut self) {
+        if let Some(typed) = self.account_edit.take() {
+            let typed = typed.trim();
+            if typed != self.settings.account_service {
+                self.settings.account_service = typed.to_owned();
+            }
+        }
+    }
+
     pub(crate) fn toast(&mut self, ctx: &egui::Context, text: impl Into<String>, error: bool) {
         let now = ctx.input(|i| i.time);
         self.toasts.push(Toast { text: text.into(), error, until: now + if error { 8.0 } else { 4.5 } });
@@ -263,14 +295,43 @@ impl LauncherUi {
         self.entries.iter_mut().find(|e| e.app.id == id)
     }
 
-    /// Non-drawing work: runs every frame and also while the window is hidden in the tray.
-    pub fn logic(&mut self, ctx: &egui::Context, host: &mut dyn Host) {
-        set_current(crate::i18n::Lang::from_pref(&self.settings.language));
-        let options = BackendOptions { kinds: self.settings.preferred_kinds.clone(), prereleases: self.settings.prereleases };
+    pub(crate) fn configure(&mut self) {
+        let options = BackendOptions {
+            kinds: self.settings.preferred_kinds.clone(),
+            prereleases: self.settings.prereleases,
+            install_locations: self.settings.install_locations.clone(),
+            account_service: self.settings.account_service.trim().to_string(),
+        };
         if self.sent_options.as_ref() != Some(&options) {
             self.backend.send(Command::Configure(options.clone()));
             self.sent_options = Some(options);
         }
+    }
+
+    pub(crate) fn custom_install_folders(&self) -> bool {
+        self.caps.manage_apps
+            && self.platform.is_some_and(|p| {
+                matches!(p.os, artcraft_launcher_core::Os::Windows | artcraft_launcher_core::Os::MacOs | artcraft_launcher_core::Os::Linux)
+            })
+            && !crate::settings::is_flatpak_sandbox()
+    }
+
+    pub(crate) fn install_app(&mut self, id: &str) {
+        if !self.custom_install_folders() || self.entry(id).is_some_and(|e| e.installed.is_some()) {
+            self.send(Command::Install { app: id.to_string() });
+            return;
+        }
+        self.dialog =
+            Some(Dialog::Install { app: id.to_string(), folder: self.settings.install_locations.per_app.get(id).cloned().unwrap_or_default() });
+    }
+
+    /// Non-drawing work: runs every frame and also while the window is hidden in the tray.
+    pub fn logic(&mut self, ctx: &egui::Context, host: &mut dyn Host) {
+        set_current(crate::i18n::Lang::from_pref(&self.settings.language));
+        if !matches!(self.dialog, Some(Dialog::Settings)) {
+            self.commit_account_address();
+        }
+        self.configure();
         if !self.started {
             self.started = true;
             self.backend.send(Command::CheckForUpdates { force: false });
@@ -368,6 +429,10 @@ impl LauncherUi {
                 }
                 false
             }
+            Event::Occupied { app, path } => {
+                self.dialog = Some(Dialog::Replace { app, path });
+                false
+            }
             Event::JobFinished { app, result } => {
                 let launcher = app == artcraft_launcher_core::catalog::LAUNCHER_ID;
                 // What the job was doing when it ended says what a cancellation called off.
@@ -391,6 +456,8 @@ impl LauncherUi {
                         self.toast(ctx, tl!("Install cancelled. The download is kept for the next try."), false);
                     }
                     Err(e) if e == INSTALL_CANCELLED => self.toast(ctx, tl!("Install cancelled"), false),
+                    // The Replace dialog says it all.
+                    Err(_) if matches!(&self.dialog, Some(Dialog::Replace { app: a, .. }) if *a == app) => {}
                     Err(e) => self.toast(ctx, e, true),
                 }
                 true
@@ -404,6 +471,27 @@ impl LauncherUi {
                     self.dialog = Some(Dialog::LauncherUpdate(r));
                 }
                 fresh
+            }
+            Event::Account(state) => {
+                // A failure is a passing state: report it, then ask again what is true.
+                if let SuiteAccount::Failed(why) = &state {
+                    let why = crate::i18n::msg(why);
+                    self.toast(ctx, why, true);
+                    self.backend.send(Command::AccountRefresh);
+                    return false;
+                }
+                // Nothing happens at the service until the user has been to the sign-in page. Open
+                // it as soon as it is known. Open it only once.
+                if let SuiteAccount::Waiting { verify_url } = &state {
+                    if self.opened_verify_url.as_deref() != Some(verify_url.as_str()) {
+                        self.opened_verify_url = Some(verify_url.clone());
+                        ctx.open_url(egui::OpenUrl::new_tab(verify_url));
+                    }
+                } else {
+                    self.opened_verify_url = None;
+                }
+                self.account = state;
+                false
             }
             Event::CheckStarted => {
                 self.checking = true;

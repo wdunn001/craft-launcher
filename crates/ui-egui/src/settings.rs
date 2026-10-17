@@ -84,6 +84,7 @@ impl CheckEvery {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(default)]
 pub struct Settings {
+    pub install_locations: artcraft_launcher_core::protocol::InstallLocations,
     pub view: ViewMode,
     pub filter: Filter,
     pub sort: SortKey,
@@ -114,6 +115,12 @@ pub struct Settings {
     pub last_check: Option<i64>,
     /// Catalog ids of apps hidden from the main lists (`photocraft`, …).
     pub hidden: std::collections::BTreeSet<String>,
+    /// The CollabCraft deployment the suite signs in to, as a base URL.
+    ///
+    /// Empty by default. Empty means the launcher offers nothing about an account and makes no
+    /// request about one. Signing in is a choice somebody makes, never a step they are put through.
+    #[serde(default)]
+    pub account_service: String,
 }
 
 impl Settings {
@@ -169,6 +176,7 @@ pub fn default_preferred_kinds() -> Vec<PackageKind> {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            install_locations: Default::default(),
             view: ViewMode::Grid,
             filter: Filter::All,
             sort: SortKey::Suite,
@@ -186,6 +194,7 @@ impl Default for Settings {
             notified: BTreeMap::new(),
             last_check: None,
             hidden: std::collections::BTreeSet::new(),
+            account_service: String::new(),
         }
     }
 }
