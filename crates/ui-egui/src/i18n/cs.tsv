@@ -64,6 +64,7 @@
 	Dismiss	Skrýt
 	Update and restart	Aktualizovat a restartovat
 	A new version is available. Would you like to relaunch with the updated version?	Je k dispozici nová verze. Chcete aplikaci znovu spustit s aktualizovanou verzí?
+	A new version is available. Download it to replace this version?	Je k dispozici nová verze. Chcete ji stáhnout a nahradit jí tuto verzi?
 	Later	Později
 	What's new	Co je nového
 	No notes were published with this release.	K tomuto vydání nebyly zveřejněny žádné poznámky.
@@ -76,6 +77,7 @@
 	Notify me when an installed app has an update	Upozornit, když má nainstalovaná aplikace aktualizaci
 	Include pre-releases (betas and release candidates)	Zahrnout předběžná vydání (beta verze a kandidáty na vydání)
 	Installing on Linux	Instalace v Linuxu
+	Installing on Windows	Instalace ve Windows
 	Install new apps as	Instalovat nové aplikace jako
 	System package (recommended)	Systémový balíček (doporučeno)
 	Updates always use the format an app was installed with.	Aktualizace vždy použijí formát, ve kterém byla aplikace nainstalována.
@@ -138,6 +140,7 @@
 	Disk image (.dmg)	Obraz disku (.dmg)
 	Debian package (.deb)	Balíček Debian (.deb)
 	RPM package (.rpm)	Balíček RPM (.rpm)
+	Arch package (.pkg.tar.zst)	Balíček Arch (.pkg.tar.zst)
 	Flatpak bundle	Balíček Flatpak
 	Tarball (.tar.gz)	Archiv tar (.tar.gz)
 photocraft	Image editing	Úpravy obrázků
@@ -264,6 +267,10 @@ filter	Installed	Nainstalováno
 @msg	{name} installed: {version} (this release publishes no checksum, so only its size was checked)	Aplikace {name} byla nainstalována ve verzi {version} (toto vydání neobsahuje kontrolní součet, ověřena byla pouze velikost)
 @msg	{name} was removed	Aplikace {name} byla odebrána
 @msg	{name} is running. Quit it, then try again.	Aplikace {name} je spuštěná. Ukončete ji a zkuste to znovu.
+@msg	{name} was installed from the {repo} repository or the AUR ({pkg}). Update it with {cmd} or sudo pacman -Syu	Aplikace {name} byla nainstalována z repozitáře {repo} nebo z AUR ({pkg}). Aktualizujte ji příkazem {cmd} nebo sudo pacman -Syu
+@msg	{name} was installed from the {repo} repository or the AUR ({pkg}). Update it with your AUR helper (for example: yay -S {pkg}) or sudo pacman -Syu	Aplikace {name} byla nainstalována z repozitáře {repo} nebo z AUR ({pkg}). Aktualizujte ji pomocí pomocníka AUR (například: yay -S {pkg}) nebo příkazem sudo pacman -Syu
+@msg	{name} was installed from the AUR ({pkg}). Update it with {cmd}	Aplikace {name} byla nainstalována z AUR ({pkg}). Aktualizujte ji příkazem {cmd}
+@msg	{name} was installed from the AUR ({pkg}). Update it with your AUR helper (for example: yay -S {pkg})	Aplikace {name} byla nainstalována z AUR ({pkg}). Aktualizujte ji pomocí pomocníka AUR (například: yay -S {pkg})
 @id	app.install	Nainstalovat
 @id	app.update	Aktualizovat na {v}
 @id	app.open	Otevřít
@@ -312,3 +319,42 @@ filter	Installed	Nainstalováno
 	ArtCraft on GitHub	ArtCraft na GitHubu
 	Join the ArtCraft Discord	Připojit se na ArtCraft Discord
 @plural	ArtCraft Launcher · {n} update available|ArtCraft Launcher · {n} updates available	ArtCraft Launcher · {n} dostupná aktualizace|ArtCraft Launcher · {n} dostupné aktualizace|ArtCraft Launcher · {n} dostupných aktualizací
+	Install folder	Instalační složka
+	Default install folder	Výchozí instalační složka
+	System default	Výchozí nastavení systému
+	Browse…	Procházet…
+	Use default	Použít výchozí
+	New installs use this folder. Updates stay in their current location.	Nové instalace používají tuto složku. Aktualizace zůstávají v aktuálním umístění.
+	Custom folders use AppImage on Linux.	Vlastní složky používají v Linuxu formát AppImage.
+	On Linux, custom folders use AppImage format.	Vlastní složky používají v Linuxu formát AppImage.
+	The system manages install locations here.	Umístění instalací zde spravuje systém.
+@msg	couldn't use install folder {path}: {reason}	instalační složku {path} nelze použít: {reason}
+@msg	this release has no AppImage for a custom install folder	toto vydání nemá AppImage pro vlastní instalační složku
+@msg	custom install folders aren't supported on this system	vlastní instalační složky nejsou v tomto systému podporovány
+@msg	{path} already exists and wasn't installed by ArtCraft Launcher	{path} již existuje a nebylo nainstalováno aplikací ArtCraft Launcher
+@msg	couldn't move {path} to Trash ({reason}). Remove it in Finder instead.	{path} nelze přesunout do koše ({reason}). Odstraňte položku ve Finderu.
+	Apps are placed inside this folder.	Aplikace se umístí do této složky.
+	Replace what's there?	Nahradit, co tam je?
+	{path} already exists. Installing {name} will overwrite it.	{path} už existuje. Instalace aplikace {name} ho přepíše.
+	Replace	Nahradit
+# The suite's shared sign-in (the launcher is where somebody signs in once for every Craft app)
+	Account	Účet
+	Sign in here once. Every Craft app then uses it.	Přihlas se zde jednou. Každá aplikace Craft potom použije toto přihlášení.
+	CollabCraft address	Adresa CollabCraft
+	Sign in	Přihlásit se
+	Sign out	Odhlásit se
+	Open {name}	Otevřít {name}
+	Your browser is open. Finish signing in there.	Tvůj prohlížeč je otevřený. Dokonči přihlášení tam.
+	Storage connected	Úložiště připojeno
+	No storage connected	Žádné připojené úložiště
+	Signing out ends the session for every Craft app.	Odhlášení ukončí sezení ve všech aplikacích Craft.
+	The shared sign-in couldn't be read.	Společné přihlášení se nepodařilo přečíst.
+	Recently updated	Nedávno aktualizované
+	Name (A–Z)	Název (A–Z)
+	Name (Z–A)	Název (Z–A)
+	Frequently used	Nejčastěji používané
+	Next app	Další aplikace
+	Previous app	Předchozí aplikace
+	Show {n} more changes	Zobrazit dalších změn: {n}
+	Last updated: {date}	Naposledy aktualizováno: {date}
+column	Version	Verze

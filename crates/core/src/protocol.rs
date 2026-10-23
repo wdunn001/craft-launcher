@@ -4,6 +4,8 @@
 //! The UI sends [`Command`]s and drains [`Event`]s once per frame, so backends do their work on
 //! threads (desktop) or futures (web) and never block a frame.
 
+use std::collections::BTreeMap;
+
 use serde::{Deserialize, Serialize};
 
 use crate::platform::{PackageKind, Platform};
@@ -21,6 +23,10 @@ pub enum Command {
     Detect,
     /// Install or update an app to its latest release.
     Install {
+        app: String,
+    },
+    /// `Install`, writing over what [`Event::Occupied`] reported.
+    Replace {
         app: String,
     },
     Uninstall {
@@ -51,15 +57,98 @@ pub enum Command {
     },
     /// Change how the backend behaves.
     Configure(BackendOptions),
+    /// Sign in to the configured CollabCraft deployment, for the whole Craft App Suite.
+    ///
+    /// The answer arrives as [`Event::Account`]: first
+    /// [`SuiteAccount::Waiting`] with the page to open in a browser, then
+    /// [`SuiteAccount::SignedIn`] once the user has finished there.
+    AccountSignIn,
+    /// End the suite session at the deployment and in this machine's keychain.
+    AccountSignOut,
+    /// Say again who is signed in, asking the deployment whether the session is still good.
+    AccountRefresh,
+}
+
+/// Parent folders for new installs. Existing installations keep their recorded location.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct InstallLocations {
+    pub root: Option<String>,
+    pub per_app: BTreeMap<String, String>,
+}
+
+impl InstallLocations {
+    pub fn folder(&self, app: &str) -> Option<&str> {
+        self.per_app.get(app).map(String::as_str).or(self.root.as_deref())
+    }
 }
 
 /// Settings the backend needs.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct BackendOptions {
+    pub install_locations: InstallLocations,
     /// Package formats to install, best first (empty: the platform default).
     pub kinds: Vec<PackageKind>,
     /// Offer pre-releases (`0.6.0-rc.1`) as updates.
     pub prereleases: bool,
+    /// The CollabCraft deployment the suite signs in to, as a base URL. Empty means none is
+    /// configured. Nothing about signing in is then offered or attempted.
+    #[serde(default)]
+    pub account_service: String,
+}
+
+/// What the launcher knows about the suite's shared sign-in.
+///
+/// The launcher is the suite's keychain: somebody signs in here and every Craft App uses it. The
+/// account list lives in one suite-level folder and the token lives in the operating system's
+/// keychain (`craft-suite-account`).
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
+pub enum SuiteAccount {
+    /// No deployment is configured. There is nothing to sign in to. The web build never leaves this
+    /// state.
+    #[default]
+    Unconfigured,
+    /// A deployment is configured and nobody is signed in.
+    SignedOut,
+    /// A sign-in is under way. The user finishes it in a browser at `verify_url`.
+    Waiting {
+        verify_url: String,
+    },
+    SignedIn(SuiteIdentity),
+    /// An account is on file whose token could not be read: a locked keychain, or an entry
+    /// somebody removed by hand. Said out loud. A plain sign-out would leave somebody wondering
+    /// where their account went.
+    Unreadable {
+        display: String,
+        why: String,
+    },
+    /// The last sign-in, sign-out or check failed. A passing state: the UI reports it and asks
+    /// again.
+    Failed(String),
+}
+
+/// Where to open the provider's conversation app with no document in hand.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConversationHome {
+    /// What the provider calls it (Talk, …).
+    pub name: String,
+    pub url: String,
+}
+
+/// Who is signed in to the suite.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct SuiteIdentity {
+    /// What to show. Never an identity: two people can share a display name.
+    pub display: String,
+    pub email: Option<String>,
+    /// The deployment. Somebody with an account on two of them needs to tell them apart.
+    pub service: String,
+    /// Whether cloud storage is linked, where the deployment has said. `None` while it has not
+    /// been asked or could not be reached. An unknown answer is its own state.
+    pub linked: Option<bool>,
+    /// The provider's conversation lobby, when the deployment has said it has one.
+    pub conversation: Option<ConversationHome>,
 }
 
 /// The answer to "what's the latest release of this app?".
@@ -188,6 +277,12 @@ pub enum Event {
         app: String,
         ready: bool,
     },
+    /// A new install stopped before downloading because `path` already exists and the launcher
+    /// didn't put it there. `Command::Replace` installs over it.
+    Occupied {
+        app: String,
+        path: String,
+    },
     /// A job ended: `Ok` carries a short success message, `Err` what went wrong.
     JobFinished {
         app: String,
@@ -200,6 +295,8 @@ pub enum Event {
         key: String,
         result: Result<Vec<u8>, String>,
     },
+    /// What the launcher now knows about the suite's shared sign-in.
+    Account(SuiteAccount),
     CheckStarted,
     CheckFinished {
         /// Unix seconds.
@@ -218,7 +315,9 @@ pub struct Capabilities {
     /// What "show in file manager" is called here (`Show in Finder`).
     pub reveal_label: &'static str,
     /// The launcher can update itself in place and restart (an installed build, not a dev build or
-    /// a Flatpak). Without it the UI offers the download instead.
+    /// a Flatpak from anywhere but the release bundle). Without it the UI offers the download
+    /// instead. A backend may only know this once it has found a newer launcher, so the UI reads
+    /// it again on [`Event::LauncherUpdate`].
     pub self_update: bool,
 }
 
@@ -232,4 +331,28 @@ pub trait Backend {
     fn platform(&self) -> Option<Platform>;
     /// Unix seconds now.
     fn now(&self) -> i64;
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn install_folders_inherit_the_default_unless_the_app_has_an_override() {
+        let mut locations = InstallLocations::default();
+        assert_eq!(locations.folder("photocraft"), None);
+        locations.root = Some("/Volumes/Craft".into());
+        locations.per_app.insert("photocraft".into(), "/Volumes/Photo".into());
+        assert_eq!(locations.folder("photocraft"), Some("/Volumes/Photo"));
+        assert_eq!(locations.folder("filmcraft"), Some("/Volumes/Craft"));
+        locations.per_app.remove("photocraft");
+        assert_eq!(locations.folder("photocraft"), Some("/Volumes/Craft"));
+    }
+
+    #[test]
+    fn old_backend_options_keep_system_install_locations() {
+        let options: BackendOptions = serde_json::from_str(r#"{"kinds":[],"prereleases":true}"#).unwrap();
+        assert!(options.prereleases);
+        assert_eq!(options.install_locations, InstallLocations::default());
+    }
 }

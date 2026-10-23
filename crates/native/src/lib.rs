@@ -7,6 +7,7 @@
 
 #![deny(clippy::unwrap_used, clippy::expect_used, clippy::panic, clippy::unimplemented, clippy::todo, clippy::unreachable)]
 
+pub mod account;
 pub mod backend;
 pub mod desktop_entry;
 pub mod detect;
@@ -17,11 +18,14 @@ pub mod login;
 pub mod manifest;
 pub mod packages;
 pub mod paths;
+#[cfg(windows)]
+pub mod portable;
 pub mod process;
 pub mod proxy;
 pub mod queue;
 pub mod screenshots;
 pub mod self_update;
+pub mod service_base;
 pub mod single_instance;
 pub mod source;
 

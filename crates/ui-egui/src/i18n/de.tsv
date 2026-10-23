@@ -77,6 +77,7 @@
 	Dismiss	Ausblenden
 	Update and restart	Aktualisieren und neu starten
 	A new version is available. Would you like to relaunch with the updated version?	Eine neue Version ist verfügbar. Mit der neuen Version neu starten?
+	A new version is available. Download it to replace this version?	Eine neue Version ist verfügbar. Herunterladen, um diese Version zu ersetzen?
 	Later	Später
 	What's new	Neuigkeiten
 	No notes were published with this release.	Zu dieser Version wurden keine Hinweise veröffentlicht.
@@ -89,6 +90,7 @@
 	Notify me when an installed app has an update	Benachrichtigen, wenn es für eine installierte App ein Update gibt
 	Include pre-releases (betas and release candidates)	Vorabversionen einbeziehen (Betas und Release Candidates)
 	Installing on Linux	Installation unter Linux
+	Installing on Windows	Installation unter Windows
 	Install new apps as	Neue Apps installieren als
 	System package (recommended)	Systempaket (empfohlen)
 	Updates always use the format an app was installed with.	Updates verwenden immer das Format, mit dem eine App installiert wurde.
@@ -154,6 +156,7 @@
 	Disk image (.dmg)	Disk-Image (.dmg)
 	Debian package (.deb)	Debian-Paket (.deb)
 	RPM package (.rpm)	RPM-Paket (.rpm)
+	Arch package (.pkg.tar.zst)	Arch-Paket (.pkg.tar.zst)
 	Flatpak bundle	Flatpak-Bundle
 	Tarball (.tar.gz)	Tar-Archiv (.tar.gz)
 
@@ -278,6 +281,10 @@ filter	Installed	Installiert
 @msg	{name} installed: {version} (this release publishes no checksum, so only its size was checked)	{name} installiert: {version} (diese Version veröffentlicht keine Prüfsumme, daher wurde nur die Größe geprüft)
 @msg	{name} was removed	{name} wurde entfernt
 @msg	{name} is running. Quit it, then try again.	{name} läuft. Beende die App und versuche es erneut.
+@msg	{name} was installed from the {repo} repository or the AUR ({pkg}). Update it with {cmd} or sudo pacman -Syu	{name} wurde aus dem Repository {repo} oder dem AUR installiert ({pkg}). Aktualisiere die App mit {cmd} oder sudo pacman -Syu
+@msg	{name} was installed from the {repo} repository or the AUR ({pkg}). Update it with your AUR helper (for example: yay -S {pkg}) or sudo pacman -Syu	{name} wurde aus dem Repository {repo} oder dem AUR installiert ({pkg}). Aktualisiere die App mit deinem AUR-Hilfsprogramm (zum Beispiel: yay -S {pkg}) oder sudo pacman -Syu
+@msg	{name} was installed from the AUR ({pkg}). Update it with {cmd}	{name} wurde aus dem AUR installiert ({pkg}). Aktualisiere die App mit {cmd}
+@msg	{name} was installed from the AUR ({pkg}). Update it with your AUR helper (for example: yay -S {pkg})	{name} wurde aus dem AUR installiert ({pkg}). Aktualisiere die App mit deinem AUR-Hilfsprogramm (zum Beispiel: yay -S {pkg})
 
 # Command IDs for menu items (@id)
 # Format: @id<TAB>command_id<TAB>translation
@@ -344,3 +351,42 @@ filter	Installed	Installiert
 	Loading pictures…	Bilder werden geladen…
 	Pictures couldn't be loaded. Reopen this page to try again.	Die Bilder konnten nicht geladen werden. Beim erneuten Öffnen der Seite wird es noch einmal versucht.
 @plural	ArtCraft Launcher · {n} update available|ArtCraft Launcher · {n} updates available	ArtCraft Launcher · {n} Update verfügbar|ArtCraft Launcher · {n} Updates verfügbar
+	Install folder	Installationsordner
+	Default install folder	Standardordner für Installationen
+	System default	Systemstandard
+	Browse…	Durchsuchen…
+	Use default	Standard verwenden
+	New installs use this folder. Updates stay in their current location.	Neue Installationen verwenden diesen Ordner. Updates bleiben am bisherigen Speicherort.
+	Custom folders use AppImage on Linux.	Für eigene Ordner wird unter Linux AppImage verwendet.
+	On Linux, custom folders use AppImage format.	Für eigene Ordner wird unter Linux AppImage verwendet.
+	The system manages install locations here.	Das System verwaltet hier die Installationsorte.
+@msg	couldn't use install folder {path}: {reason}	Installationsordner {path} konnte nicht verwendet werden: {reason}
+@msg	this release has no AppImage for a custom install folder	diese Veröffentlichung enthält kein AppImage für einen eigenen Installationsordner
+@msg	custom install folders aren't supported on this system	eigene Installationsordner werden auf diesem System nicht unterstützt
+@msg	{path} already exists and wasn't installed by ArtCraft Launcher	{path} existiert bereits und wurde nicht von ArtCraft Launcher installiert
+@msg	couldn't move {path} to Trash ({reason}). Remove it in Finder instead.	{path} konnte nicht in den Papierkorb verschoben werden ({reason}). Entfernen Sie es stattdessen im Finder.
+	Apps are placed inside this folder.	Apps werden in diesem Ordner abgelegt.
+	Replace what's there?	Vorhandenes ersetzen?
+	{path} already exists. Installing {name} will overwrite it.	{path} existiert bereits. Die Installation von {name} überschreibt es.
+	Replace	Ersetzen
+# The suite's shared sign-in (the launcher is where somebody signs in once for every Craft app)
+	Account	Konto
+	Sign in here once. Every Craft app then uses it.	Melde dich hier einmal an. Jede Craft-App nutzt diese Anmeldung dann.
+	CollabCraft address	CollabCraft-Adresse
+	Sign in	Anmelden
+	Sign out	Abmelden
+	Open {name}	{name} öffnen
+	Your browser is open. Finish signing in there.	Dein Browser ist offen. Schließe die Anmeldung dort ab.
+	Storage connected	Speicher verbunden
+	No storage connected	Kein Speicher verbunden
+	Signing out ends the session for every Craft app.	Das Abmelden beendet die Sitzung für jede Craft-App.
+	The shared sign-in couldn't be read.	Die gemeinsame Anmeldung konnte nicht gelesen werden.
+	Recently updated	Zuletzt aktualisiert
+	Name (A–Z)	Name (A–Z)
+	Name (Z–A)	Name (Z–A)
+	Frequently used	Am häufigsten genutzt
+	Next app	Nächste App
+	Previous app	Vorherige App
+	Show {n} more changes	{n} weitere Änderungen anzeigen
+	Last updated: {date}	Zuletzt aktualisiert: {date}
+column	Version	Version
