@@ -20,7 +20,7 @@ todo = "warn"
 artcraft-launcher-core = { path = "crates/core" }
 artcraft-launcher-ui-egui = { path = "crates/ui-egui" }
 artcraft-launcher-native = { path = "crates/native" }
-craft-suite-account = { git = "https://github.com/wdunn001/craft-libs.git", rev = "f802cbdec018eede562a5bc520a248777a9631b0" }
+craft-suite-account = {git = "https://github.com/wdunn001/craft-libs", branch = "quasarke"}
 egui = "0.36"
 eframe = { version = "0.36", default-features = false }
 egui_extras = { version = "0.36", default-features = false }
