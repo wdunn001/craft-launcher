@@ -1,4 +1,4 @@
-//! The Craft App Suite: the thirteen apps the launcher knows about.
+//! The Craft App Suite: the fifteen apps the launcher knows about.
 //!
 //! The list is data so a later version can fetch it from an API; [`SUITE`] is the built-in copy.
 //!
@@ -72,8 +72,9 @@ const fn app(
     CraftApp { id, name, tagline, color, ink_light, ink_dark, repo, former_ids: &[], former_names: &[] }
 }
 
-/// The Craft App Suite, in display order matching getartcraft.com:
-pub const SUITE: [CraftApp; 13] = [
+/// The Craft App Suite, in display order matching getartcraft.com, then the
+/// two apps that live only on the wdunn001 forks:
+pub const SUITE: [CraftApp; 15] = [
     app("photocraft", "PhotoCraft", "Image editing", [[0x2f, 0x7b, 0xf5], [0x1a, 0x5b, 0xc4], [0x7f, 0xb0, 0xff]], "storytold/photocraft"),
     app("vectorcraft", "VectorCraft", "Vector illustration", [[0xe8, 0x57, 0x3f], [0xb8, 0x3a, 0x24], [0xff, 0x8a, 0x70]], "storytold/vectorcraft"),
     app(
@@ -145,6 +146,20 @@ pub const SUITE: [CraftApp; 13] = [
         "storytold/cadcraft",
     ),
     app("gridcraft", "GridCraft", "Spreadsheets and data", [[0x1f, 0x9d, 0x55], [0x12, 0x70, 0x3a], [0x4f, 0xd6, 0x8a]], "storytold/gridcraft"),
+    app(
+        "solidcraft",
+        "SolidCraft",
+        "Solid modelling and CAM",
+        [[0x4a, 0x6f, 0xa5], [0x2c, 0x48, 0x78], [0x8a, 0xae, 0xdc]],
+        "wdunn001/solidcraft",
+    ),
+    app(
+        "lasercraft",
+        "LaserCraft",
+        "Laser cutting and engraving",
+        [[0xff, 0x5a, 0x3c], [0xb8, 0x3a, 0x24], [0xff, 0x8a, 0x70]],
+        "wdunn001/lasercraft",
+    ),
 ];
 
 /// ArtCraft's website.
@@ -189,14 +204,15 @@ mod tests {
     use super::*;
 
     #[test]
-    fn suite_has_thirteen_apps_with_unique_ids() {
-        assert_eq!(SUITE.len(), 13);
+    fn suite_has_fifteen_apps_with_unique_ids() {
+        assert_eq!(SUITE.len(), 15);
         let mut ids: Vec<_> = SUITE.iter().map(|a| a.id).collect();
         ids.sort_unstable();
         ids.dedup();
         assert_eq!(ids.len(), SUITE.len());
         for a in &SUITE {
-            assert_eq!(a.repo, format!("storytold/{}", a.id));
+            let owner = if matches!(a.id, "lasercraft" | "solidcraft") { "wdunn001" } else { "storytold" };
+            assert_eq!(a.repo, format!("{owner}/{}", a.id));
             assert_eq!(a.name.to_lowercase(), a.id);
         }
     }

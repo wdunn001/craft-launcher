@@ -127,7 +127,7 @@ pub fn screenshot_within_budget(bytes: &[u8]) -> bool {
 /// Where every Craft App runs (getartcraft.com lists the same for each of them).
 const PLATFORMS: &str = "macOS, Windows, Linux, FreeBSD, web";
 
-pub const DETAILS: [AppDetails; 13] = [
+pub const DETAILS: [AppDetails; 15] = [
     AppDetails {
         id: "photocraft",
         headline: "The image editor you already know how to use.",
@@ -461,6 +461,38 @@ pub const DETAILS: [AppDetails; 13] = [
         ],
         shots: &[],
         platforms: PLATFORMS,
+    },
+    AppDetails {
+        id: "solidcraft",
+        headline: "Solid modelling and CAM, on your own disk.",
+        about: "Parts, assemblies and toolpaths in a native app that talks to CollabCraft for \
+                shared files. Open source, offline, and yours.\n\n\
+                SolidCraft keeps sketches, solids and CAM in one place, and Open and Save go \
+                through the same cloud the rest of the suite uses.",
+        features: &[
+            feature("Native 3D", "Sketches, solids and assemblies without a web view."),
+            feature("CAM", "Toolpaths and machine setup next to the model."),
+            feature("CollabCraft", "Open and Save against the suite cloud, not a per-app backend."),
+            feature("Your files", "Plain documents on your own disk, and the same Places panel as the other Craft apps."),
+        ],
+        shots: &[],
+        platforms: PLATFORMS,
+    },
+    AppDetails {
+        id: "lasercraft",
+        headline: "Laser cutting and engraving, from the same suite.",
+        about: "Layout, toolpaths and machine control for diode and CO2 lasers, including \
+                Snapmaker over the network. Open source, offline, and yours.\n\n\
+                LaserCraft shares craft-libs pins with the rest of the suite so geometry, \
+                settings and atomic writes stay on one branch.",
+        features: &[
+            feature("Toolpaths", "Cut, engrave and fill from SVG, DXF and the on-canvas editor."),
+            feature("Machines", "G-code and Snapmaker over the local network."),
+            feature("Shared crates", "craft-atomic, craft-settings, craft-geom and craft-pathops from the suite pins."),
+            feature("Web and CLI", "A browser UI and a lasercraft-cli binary from the same workspace."),
+        ],
+        shots: &[],
+        platforms: "macOS, Windows, Linux, web",
     },
 ];
 

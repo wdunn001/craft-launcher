@@ -1041,7 +1041,7 @@ dependencies = [
 [[package]]
 name = "craft-suite-account"
 version = "0.1.0"
-source = "git+https://github.com/wdunn001/craft-libs.git?rev=f802cbdec018eede562a5bc520a248777a9631b0#f802cbdec018eede562a5bc520a248777a9631b0"
+source = "git+https://github.com/wdunn001/craft-libs?branch=quasarke#97e5886f2e7a5d1cf4aec9e7e4d9d033163cea06"
 dependencies = [
  "dirs 7.0.0",
  "keyring",

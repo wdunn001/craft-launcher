@@ -1485,7 +1485,7 @@ fn the_lead_picture_can_be_enlarged() {
 #[test]
 fn every_page_opens_and_pages_through_its_pictures() {
     let (mut h, _sent) = harness(ViewMode::Grid, egui::Theme::Dark, true);
-    // Tall enough to show all thirteen cards at once.
+    // Tall enough to show all fifteen cards at once.
     h.set_size(egui::vec2(1180.0, 3000.0));
     h.run_steps(8);
     for d in &artcraft_launcher_core::details::DETAILS {
