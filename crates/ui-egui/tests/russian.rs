@@ -27,7 +27,7 @@ impl Backend for Fake {
         std::mem::take(&mut self.events)
     }
     fn capabilities(&self) -> Capabilities {
-        Capabilities { manage_apps: true, reveal_label: "Show in Finder", self_update: true }
+        Capabilities { manage_apps: true, reveal_label: "Show in Finder", self_update: true, desktop_shortcuts: false }
     }
     fn platform(&self) -> Option<Platform> {
         Some(Platform { os: Os::MacOs, arch: Arch::Arm64 })
@@ -69,6 +69,9 @@ fn events() -> Vec<Event> {
             source: InstallSource::MacApp,
             location: format!("/Applications/{}.app", app.name),
             package: None,
+            externally_managed: false,
+            origin: None,
+            installation: None,
         });
         ev.push(Event::Detected { app: app.id.into(), installed });
     }
@@ -113,7 +116,7 @@ fn russian_ui_translates_labels_dates_and_messages() {
     h.run_steps(8);
     snapshot(&mut h, "grid-ru-dark");
     // Product names stay in English.
-    h.get_by_label("Launcher");
+    assert!(h.query_by_label("Launcher").is_none());
     h.get_by_label("Craft App Suite");
     h.get_by_label("Редактирование изображений");
     h.get_by_label("Обновить до 0.5.0");
@@ -124,6 +127,6 @@ fn russian_ui_translates_labels_dates_and_messages() {
     let mut table = harness(ViewMode::Table);
     table.run_steps(8);
     snapshot(&mut table, "table-ru-dark");
-    table.get_by_label("Текущая");
+    table.get_by_label("Версия");
     assert!(table.query_all_by_label_contains("авг. 2026").count() >= 1);
 }
